@@ -1,0 +1,247 @@
+* Summary
+
+This is a collection of functions I find I've been writing over and over again.
+
+I find often times I'm working with hierarchical data structures and attempting
+to apply transformations on them to yield a similar-but-different output
+hierarchical data structures.
+
+There are lots of ways to do this... these are just utilities for reference to
+do so.
+
+Input could be nested json, xml, etc and there are [[https://github.com/martinblech/xmltodict][various ways]] to get this into
+a python dictionary.
+
+This python dictionary however still retains the complexity of the original
+document.
+
+This module provides some utility functions (in the spirit of =toolz= / =functoolz=)
+that can be used to grok hierarchies.
+
+* Hierarchy Path Concepts
+
+Many of the functions receiver a /hierarchy path/ (=hp=).
+
+Given the example data such as:
+
+#+BEGIN_SRC python
+teams = {"compile-day": "monday",
+         "compile-secret": "SECRET!",
+         "nhl": [{"team": "stars"  , "players": 10, "pos": ["l", "r", "c"]},
+                 {"team": "bruins" , "players": 30 },
+                 {"team": "preds"  , "players": 90 }],
+         "nba": [{"team": "mavs"   , "players": -9, "details": [{"who": "bill", "pos": ["r", "c", "l"]},
+                                                                {"who": "ted", "pos": ["d"]},
+                                                                {"who": "fred"}]},
+                 {"team": "bucks"  , "players": 3 , "details": [{"who": "ken" , "pos": ["c"]}]}],}
+#+END_SRC
+
+Some /hierarchy paths/ could look like this:
+
+#+BEGIN_SRC python
+/compile-day
+#+END_SRC
+
+Or any of these:
+#+BEGIN_SRC python
+/nhl/0/details/who
+/nba/*/details/*/
+/nba/*/details/*/who
+#+END_SRC
+
+Notice the use of numbers and/or =*= in the Hierarchy Path that acts as a
+index-of-list identifier or a globing.
+
+This idea of a hierarchy path wouldn't work with dictionaries that had numeric
+keys like =0= and/or dictionaries that have keys such 's =*=.  This hasn't been
+an issue for me, as most of my dictionaries are generated from xml, and these
+keys wouldn't be [[https://www.w3schools.com/xml/xml_elements.asp][valid tags in xml]].
+
+
+* Function listing and Samples
+** =get_in_hp=
+
+Like toolz's =get_in= but works with a Hierarchy Path:
+
+#+BEGIN_SRC python
+get_in_hp("/compile-day", teams)
+# Output:
+'monday'
+
+get_in_hp("/nba/*/details/*/who", teams)
+# Output:
+[['bill', 'ted', 'fred'], ['ken']]
+
+get_in_hp('/nhl/0/players'   , teams)
+# Output:
+10
+
+get_in_hp('/nba/*/details/*/'    , teams)
+# Output:
+[[{'pos': ['r', 'c', 'l'], 'who': 'bill'},
+  {'pos': ['d'], 'who': 'ted'},
+  {'who': 'fred'}],
+ [{'pos': ['c'], 'who': 'ken'}]]
+
+
+get_in_hp('/nba/*/details/*/who' , teams)
+# Output:
+[['bill', 'ted', 'fred'], ['ken']]
+#+END_SRC
+
+** =flatten_recur=
+
+Flattens recursive lists.
+
+#+BEGIN_SRC python
+
+flatten_recur([['bill', 'ted', 'fred'], ['ken']])
+#=> ['bill', 'ted', 'fred', 'ken']
+
+flatten_recur(get_in_hp("/nba/*/details/*/who", teams) )
+#=> =['bill', 'ted', 'fred', 'ken']
+
+#+END_SRC
+
+** =assoc_in_hp=
+Like toolz's =assoc_in= but works with a hierarchy path:
+
+#+BEGIN_SRC python
+# change team 0's name:
+assoc_in_hp({"nhl":[{"team": "stars"  , "players": 10},
+                    {"team": "preds"  , "players": 90}]},
+            "/nhl/0/team/",
+            "STARS!")
+
+# Output:
+{'nhl': [{'players': 10, 'pos': ['l', 'r', 'c'], 'team': 'STARS!'},
+         {'players': 90, 'team': 'preds'}]}
+
+
+# Change team 1's players count:
+assoc_in_hp({"nhl":[{"team": "stars"  , "players": 10},
+                    {"team": "preds"  , "players": 90}]},
+            "/nhl/1/players",
+            40)
+
+# Output:
+{'nhl': [{'players': 10, 'team': 'stars'},
+         {'players': 40, 'team': 'preds'}]}
+
+# Should work with deeply nested lists too:
+assoc_in_hp({"nhl":[{"team": "stars"  , "players": 10, "pol": ["l", "r", "c"]},
+                    {"team": "preds"  , "players": 90}]},
+            "/nhl/0/pos/2",
+            "coach!")
+
+# Output:
+{'nhl': [{'players': 10, 'pos': ['l', 'r', 'coach!'], 'team': 'stars'},
+         {'players': 90, 'team': 'preds'}]}
+#+END_SRC
+
+** =update_in_hp=
+Similar to toolz's =update_in=.
+
+Updates an input dictionaries value with the result of calling a function on
+that value.
+
+#+BEGIN_SRC python
+
+my_fn = lambda x: x + 1
+
+update_in_hp({"nhl":[{"team": "stars"  , "players": 10},
+                     {"team": "preds"  , "players": 90}]},
+             "/nhl/0/players/",
+             my_fn, default=0)
+
+{"nhl":[{"team": "stars"  , "players": 11},
+        {"team": "preds"  , "players": 90}]},
+#+END_SRC
+
+It can gets interesting (hopefully useful?) with wildcards.
+
+Lets pretend that we want to apply a 10% raise to all players across the board,
+on all teams.
+
+
+This would be our function:
+
+#+BEGIN_SRC python
+def ten_percent_raise(salary):
+    if salary:
+        return salary * 1.10
+    else:
+        # If they don't have a salary then lets pretend they own us money.
+        return -40
+#+END_SRC
+
+Then just apply that function to the correct path for the input dictionary:
+#+BEGIN_SRC python
+update_in_hp({"payroll": [{"team": "stars", "players": [{"player": "bill" , "salary": 10, },
+                                                        {"player": "ted"  , "salary": 30, },
+                                                        {"player": "ned"  , "salary": 20, },
+                                                        {"player": "fred" ,               },]},
+                          {"team": "preds", "players": [{"player": "ken"  , "salary":  5, },
+                                                        {"player": "jen"  , "salary":  8, },
+                                                        {"player": "ben"  , "salary":  9, },
+                                                        {"player": "len"  ,               },]}]},
+             "/payroll/*/players/*/salary", # path is payroll for all teams, all players, salary node.
+             ten_percent_raise)
+
+
+
+{'payroll': [{'players': [{'player': 'bill', 'salary': 11.0},
+                          {'player': 'ted', 'salary': 33.0},
+                          {'player': 'ned', 'salary': 22.0},
+                          {'player': 'fred', 'salary': -40}],
+              'team': 'stars'},
+             {'players': [{'player': 'ken', 'salary': 5.5},
+                          {'player': 'jen', 'salary': 8.8},
+                          {'player': 'ben', 'salary': 9.9},
+                          {'player': 'len', 'salary': -40}],
+              'team': 'preds'}]}
+
+#+END_SRC
+
+Here's another (similar) example; Lets b64 encode all the players ssn's:
+
+#+BEGIN_SRC python
+import base64
+
+def make_data_not_super_secure(ssn):
+    return base64.b64encode(ssn.encode()).decode("utf-8")
+
+
+update_in_hp({"payroll": [{"team": "stars", "players": [{"player": "bill" , "salary": 10, "ssn": "001-01-0001"},
+                                                        {"player": "ted"  , "salary": 30, "ssn": "001-01-0002"},
+                                                        {"player": "ned"  , "salary": 20, "ssn": "001-01-0003"},
+                                                        {"player": "fred"               , "ssn": "001-01-0004"},]},
+                          {"team": "preds", "players": [{"player": "ken"  , "salary":  5, "ssn": "001-01-0005"},
+                                                        {"player": "jen"  , "salary":  8, "ssn": "001-01-0006"},
+                                                        {"player": "ben"  , "salary":  9, "ssn": "001-01-0007"},
+                                                        {"player": "len"                , "ssn": "001-01-0008"},]}]},
+             "/payroll/*/players/*/ssn", # path is payroll for all teams, all players, salary node.
+             make_data_not_super_secure)
+
+{'payroll': [{'players': [{'player': 'bill', 'salary': 10, 'ssn': 'MDAxLTAxLTAwMDE='},
+                          {'player': 'ted', 'salary': 30, 'ssn': 'MDAxLTAxLTAwMDI='},
+                          {'player': 'ned', 'salary': 20, 'ssn': 'MDAxLTAxLTAwMDM='},
+                          {'player': 'fred', 'ssn': 'MDAxLTAxLTAwMDQ='}],
+              'team': 'stars'},
+             {'players': [{'player': 'ken', 'salary': 5, 'ssn': 'MDAxLTAxLTAwMDU='},
+                          {'player': 'jen', 'salary': 8, 'ssn': 'MDAxLTAxLTAwMDY='},
+                          {'player': 'ben', 'salary': 9, 'ssn': 'MDAxLTAxLTAwMDc='},
+                          {'player': 'len', 'ssn': 'MDAxLTAxLTAwMDg='}],
+              'team': 'preds'}]}
+
+
+#+END_SRC
+
+
+* Ideas/References
+
+https://stackoverflow.com/questions/7320319/xpath-like-query-for-nested-python-dictionaries
+
+https://jmespath.readthedocs.io/en/latest/
+
+Probably could do a lot of this with xlst... or a billion other ways.
