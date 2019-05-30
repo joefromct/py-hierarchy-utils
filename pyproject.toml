@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hierarchy_utils"
-version = "0.1.0"
+version = "0.1.1"
 description = "Utilities for working with hierarchical data structures."
 readme = "README.org"
 license = "MIT"

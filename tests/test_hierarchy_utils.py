@@ -37,7 +37,7 @@ more_fake_data = {'Coach': {'Name': {'Title': 'Mr', 'Surname': 'one', 'GivenName
 
 
 def test_version():
-    assert hu_version == '0.1.0'
+    assert hu_version == '0.1.1'
 
 
 def test_path_switchers():
