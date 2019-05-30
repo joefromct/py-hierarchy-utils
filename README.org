@@ -2,7 +2,7 @@
 
 This is a collection of functions I find I've been writing over and over again.
 
-I find often times I'm working with hierarchical data structures and attempting
+Often times I'm working with hierarchical data structures and attempting
 to apply transformations on them to yield a similar-but-different output
 hierarchical data structures.
 
@@ -114,8 +114,8 @@ assoc_in_hp({"nhl":[{"team": "stars"  , "players": 10},
             "STARS!")
 
 # Output:
-{'nhl': [{'players': 10, 'pos': ['l', 'r', 'c'], 'team': 'STARS!'},
-         {'players': 90, 'team': 'preds'}]}
+{'nhl': [{'team': 'STARS!', 'players': 10},
+         {'team': 'preds', 'players': 90}]}
 
 
 # Change team 1's players count:
@@ -128,8 +128,9 @@ assoc_in_hp({"nhl":[{"team": "stars"  , "players": 10},
 {'nhl': [{'players': 10, 'team': 'stars'},
          {'players': 40, 'team': 'preds'}]}
 
-# Should work with deeply nested lists too:
-assoc_in_hp({"nhl":[{"team": "stars"  , "players": 10, "pol": ["l", "r", "c"]},
+# Should work with deeply nested lists too;
+# Change the second position on the  first team to "coach!"
+assoc_in_hp({"nhl":[{"team": "stars"  , "players": 10, "pos": ["l", "r", "c"]},
                     {"team": "preds"  , "players": 90}]},
             "/nhl/0/pos/2",
             "coach!")
@@ -237,6 +238,32 @@ update_in_hp({"payroll": [{"team": "stars", "players": [{"player": "bill" , "sal
 
 #+END_SRC
 
+* TODO test results
+- [ ] add this to jenkins/ci
+
+#+BEGIN_SRC bash
+cwd: /Users/me/git-repos/hierarchy_utils/
+cmd: pytest --color=no
+
+==================================================================================================================================================== test session starts =====================================================================================================================================================
+platform darwin -- Python 3.7.3, pytest-4.4.1, py-1.8.0, pluggy-0.9.0 -- /usr/local/opt/python/bin/python3.7
+cachedir: .pytest_cache
+rootdir: /Users/me/git-repos/hierarchy_utils, inifile: pytest.ini
+collected 10 items
+
+tests/test_hierarchy_utils.py::test_version PASSED
+tests/test_hierarchy_utils.py::test_path_switchers PASSED
+tests/test_hierarchy_utils.py::test_get_in_usage PASSED
+tests/test_hierarchy_utils.py::test_get_in_hp_atomic PASSED
+tests/test_hierarchy_utils.py::test_get_in_hp_integers PASSED
+tests/test_hierarchy_utils.py::test_get_in_hp_stars_single PASSED
+tests/test_hierarchy_utils.py::test_get_in_hp_stars_multiple PASSED
+tests/test_hierarchy_utils.py::test_my_assoc_in_coll PASSED
+tests/test_hierarchy_utils.py::test_my_assoc_in_hp PASSED
+tests/test_hierarchy_utils.py::test_update_in_hp PASSED
+
+================================================================================================================================================= 10 passed in 0.09 seconds ==================================================================================================================================================
+#+END_SRC
 
 * Ideas/References
 
