@@ -96,7 +96,7 @@ def get_in_hp(hp: str, d: dict, default=None, no_default=False):
         path_list = hp_to_list(hp)
         try:
             return reduce(lambda x, y: x.__getitem__(y), path_list, d)
-        except (KeyError, IndexError, TypeError):
+        except (KeyError, IndexError, TypeError, AttributeError):
             if no_default:
                 raise
             return default
