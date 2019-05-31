@@ -64,7 +64,7 @@ more_fake_data = {
 
 
 def test_version():
-    assert hu_version == "0.1.2"
+    assert hu_version == "0.1.3"
 
 
 def test_path_switchers():
